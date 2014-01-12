@@ -1,6 +1,9 @@
 'use strict';
 
-var bluebird = require('./node_modules/bluebird/js/main/promise.js');
+var bluebird = require(
+    require.resolve('bluebird')
+           .replace(/bluebird\.js$/, 'promise.js')
+);
 
 module.exports = createPromise;
 
