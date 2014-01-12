@@ -8,56 +8,53 @@ var bluebird = require(
 module.exports = createPromise;
 
 function createPromise(cb) {
-    // calling code should extend Promise from within the callback
-    // and return a constructor for the custom object being wrapped
-    var Promise = promiseFactory();
-    var Constructor = cb(Promise);
-    
-    var doStatics = null;
-    
     // instantiates a new object (custom object defined above)
     // calls the constructor on it, and returns a promise
     // bound to that new object
     var Blackbird = function () {
         var obj = Object.create(Constructor.prototype);
         var res = Constructor.apply(obj, arguments);
-        var inst = function () { return Promise.bind(obj); };
-        if (doStatics) { bindStatics(inst, doStatics); }
-        return inst;
+        return Promise.bind(res || obj);
     };
-    Blackbird.Promise = Promise;
-    Blackbird.setStatics = function (a) { doStatics = a || null; };
+    
+    // calling code should extend Promise from within the callback
+    // and return a constructor for the custom object being wrapped
+    var Promise = Blackbird.promise = promiseFactory();
+    
+    var bind = false, opts;
+    Promise.bindStatics = function (_opts) { bind = true; opts = _opts; }
+    
+    var Constructor = cb(Promise);
+    
+    if (bind) { bindStatics(Promise, Blackbird, opts); }
     
     return Blackbird;
 }
-function bindStatics(Factory, opts) {
-    if (typeof Factory !== 'function') { throw new Error('No function given'); }
+function bindStatics(Promise, Blackbird, opts) {
+    var proto = Promise.prototype,
+        keys = Object.keys(proto),
+        includePrivate = false;
     
     opts = opts || { };
-    
-    var inst = Factory(),
-        proto = Object.getPrototypeOf(inst),
-        keys = Object.keys(proto);
-    
-    if (opts.keys && Array.isArray(opts.keys)) {
-        keys = opts.keys;
-    }
-    
+    if (Array.isArray(opts)) { opts = { keys: opts }; }
+    if (opts.keys && Array.isArray(opts.keys)) { keys = opts.keys; }
+    if (!opts.private) { keys = keys.filter(function (key) { return key[0] !== '_'; }); }
+
     var getFactory = function (keys, key, args) {
         var stack = [ [key, args] ];
         
         var fact = function () {
-            var instance = Factory(),
+            var instance = Blackbird(),
                 next = stack.shift(),
                 key = next[0],
                 args = next[1],
-                res = proto[key].apply(instance, args);
+                res = instance[key].apply(instance, args);
 
             while (( next = stack.shift() )) {
                 key = next[0];
                 args = next[1];
                 
-                res = res[key].apply(instance, args);
+                res = res[key].apply(res, args);
             }
         };
 
@@ -72,12 +69,13 @@ function bindStatics(Factory, opts) {
     };
     
     keys.forEach(function (key) {
-        Factory[key] = function () {
+        Blackbird[key] = function () {
             return getFactory(keys, key, arguments);
         };
     });
 }
-function promiseFactory() {
+
+function promiseFactory(Blackbird) {
     // create a new Promise constructor
     var sub = bluebird();
     
@@ -131,5 +129,6 @@ function promiseFactory() {
 
         return this;
     };
+
     return sub;
 };
