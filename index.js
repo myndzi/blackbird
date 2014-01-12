@@ -19,7 +19,7 @@ function createPromise(cb) {
     var Blackbird = function () {
         var obj = Object.create(Constructor.prototype);
         var res = Constructor.apply(obj, arguments);
-        return function () { return Promise.resolve(obj).bind(obj); }
+        return function () { return Promise.bind(obj); }
     };
     Blackbird.Promise = Promise;
     return Blackbird;
