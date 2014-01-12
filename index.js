@@ -13,18 +13,70 @@ function createPromise(cb) {
     var Promise = promiseFactory();
     var Constructor = cb(Promise);
     
+    var doStatics = null;
+    
     // instantiates a new object (custom object defined above)
     // calls the constructor on it, and returns a promise
     // bound to that new object
     var Blackbird = function () {
         var obj = Object.create(Constructor.prototype);
         var res = Constructor.apply(obj, arguments);
-        return function () { return Promise.bind(obj); }
+        var inst = function () { return Promise.bind(obj); };
+        if (doStatics) { bindStatics(inst, doStatics); }
+        return inst;
     };
     Blackbird.Promise = Promise;
+    Blackbird.setStatics = function (a) { doStatics = a || null; };
+    
     return Blackbird;
 }
+function bindStatics(Factory, opts) {
+    if (typeof Factory !== 'function') { throw new Error('No function given'); }
+    
+    opts = opts || { };
+    
+    var inst = Factory(),
+        proto = Object.getPrototypeOf(inst),
+        keys = Object.keys(proto);
+    
+    if (opts.keys && Array.isArray(opts.keys)) {
+        keys = opts.keys;
+    }
+    
+    var getFactory = function (keys, key, args) {
+        var stack = [ [key, args] ];
+        
+        var fact = function () {
+            var instance = Factory(),
+                next = stack.shift(),
+                key = next[0],
+                args = next[1],
+                res = proto[key].apply(instance, args);
 
+            while (( next = stack.shift() )) {
+                key = next[0];
+                args = next[1];
+                
+                res = res[key].apply(instance, args);
+            }
+        };
+
+        keys.forEach(function (key) {
+            fact[key] = function () {
+                stack.push([ key, arguments ]) 
+                return fact;
+            };
+        });
+        
+        return fact;
+    };
+    
+    keys.forEach(function (key) {
+        Factory[key] = function () {
+            return getFactory(keys, key, arguments);
+        };
+    });
+}
 function promiseFactory() {
     // create a new Promise constructor
     var sub = bluebird();
