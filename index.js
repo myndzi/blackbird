@@ -19,7 +19,7 @@ function createPromise(cb) {
     
     // calling code should extend Promise from within the callback
     // and return a constructor for the custom object being wrapped
-    var Promise = Blackbird.promise = promiseFactory();
+    var Promise = Blackbird.Promise = promiseFactory();
     
     var bind = false, opts;
     Promise.bindStatics = function (_opts) { bind = true; opts = _opts; }
