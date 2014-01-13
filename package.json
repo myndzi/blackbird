@@ -1,5 +1,5 @@
 {
-  "name": "Blackbird",
+  "name": "blackbird",
   "version": "0.1.0",
   "description": "A helper for writing hybrid fluent/promise interfaces",
   "main": "index.js",
